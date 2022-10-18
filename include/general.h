@@ -5,37 +5,14 @@
 
 #include "vector.h"
 
-class Material
-{
-    public:
-        Color matColor;
-        float matKs;
-
-        Material(Color col, float Ks):
-            matColor(col), matKs(Ks) {};
-
-        ~Material()
-            {}
-};
-
-class Radiation
-{
-    public:
-        Color radColor;
-        float radKa;
-
-        Radiation(Color col, float Ka):
-            radColor(col), radKa(Ka) {};
-
-        ~Radiation()
-            {}
-};
-
 class Ray
 {
     public:
         Vector rayStart;
         Vector rayFinish;
+
+        Ray():
+            rayStart(), rayFinish() {};
 
         Ray(Vector p1, Vector p2):
             rayStart(p1), rayFinish(p2) {};
@@ -43,6 +20,16 @@ class Ray
         ~Ray()
             {}
 };
+
+static sf::Uint8 Clamp(int value)
+{
+    if(value > 255)
+        return 255;
+    else if(value < 0)
+        return 0;
+    else
+        return value;
+}
 
 class Color
 {
@@ -54,7 +41,7 @@ class Color
 
     public:
         Color():
-            R(0), G(0), B(0), A(0) {};
+            R(0), G(0), B(0), A(255) {};
 
         Color(sf::Uint8 Red, sf::Uint8 Green, sf::Uint8 Blue):
             R(Red), G(Green), B(Blue), A(255) {};
@@ -65,14 +52,17 @@ class Color
         ~Color()
             {}
 
-        float GetR()
+        float GetR() const 
             { return R; }
 
-        float GetG()
+        float GetG() const
             { return G; }
 
-        float GetB()
+        float GetB() const
             { return B; }
+
+        float GetA() const
+            { return A; }
 
         Color& operator = (const Color& v)
         {
@@ -84,124 +74,106 @@ class Color
 
         Color& operator += (const Color& v)
         {
-            if((int)this->R + (int)v.R > 255)
-                this->R = 255;
-            else
-                this->R += v.R;
-
-            if((int)this->G + (int)v.G > 255)
-                this->G = 255;
-            else
-                this->G += v.G;
-
-            if((int)this->B + (int)v.B > 255)
-                this->B = 255;
-            else
-                this->B += v.B;
-
+            this->R += Clamp(v.R);
+            this->G += Clamp(v.G);
+            this->B += Clamp(v.B);
             return *this;
         }
 
         Color& operator -= (const Color& v)
         {
-            if((int)this->R - (int)v.R < 0)
-                this->R = 255;
-            else
-                this->R -= v.R;
-
-            if((int)this->G - (int)v.G < 0)
-                this->G = 0;
-            else
-                this->G -= v.G;
-
-            if((int)this->B - (int)v.B < 0)
-                this->B = 0;
-            else
-                this->B -= v.B;
-
+            this->R -= Clamp(v.R);
+            this->G -= Clamp(v.G);
+            this->B -= Clamp(v.B);
             return *this;
         }
 
-        Color& operator *= (float k)
+        Color& operator *= (const float k)
         {
-            if(k*(float)this->R > 255)
-                this->R = 255;
-            else if(k*(float)this->R < 0)
-                this->R = 0;
-            else
-                this->R*=k;
-
-            if(k*(float)this->G > 255)
-                this->G = 255;
-            else if(k*(float)this->G < 0)
-                this->G = 0;
-            else
-                this->G*=k;
-
-            if(k*(float)this->B > 255)
-                this->B = 255;
-            else if(k*(float)this->B < 0)
-                this->B = 0;
-            else
-                this->B*=k;
-
+            this->R *= Clamp(this->R * k);
+            this->G *= Clamp(this->G * k);
+            this->B *= Clamp(this->B * k);
             return *this;
         }
 
         Color& operator /= (float k)
         {
             assert(k > EPSILON);
-            if(((float)this->R)/k > 255)
-                this->R = 255;
-            else if(((float)this->R)/k < 0)
-                this->R = 0;
-            else
-                this->R/=k;
-
-            if(((float)this->G)/k > 255)
-                this->G = 255;
-            else if(((float)this->G)/k < 0)
-                this->G = 0;
-            else
-                this->G/=k;
-
-            if(((float)this->B)/k > 255)
-                this->B = 255;
-            else if(((float)this->B)/k < 0)
-                this->B = 0;
-            else
-                this->B/=k;
-
+            this->R *= Clamp(this->R / k);
+            this->G *= Clamp(this->G / k);
+            this->B *= Clamp(this->B / k);
             return *this;
         }
 
-        Color operator + (Color v)
+        friend Color operator + (const Color& c1, const Color& c2)
             { 
-                return Color(*this)+=v; 
+                return Color(Clamp(c1.R + c2.R), Clamp(c1.G + c2.G), Clamp(c1.B + c2.B));
             }
 
-        Color operator - (Color v)
+        friend Color operator - (const Color& c1, const Color& c2)
             {   
-                return Color(*this)-=v;
+                return Color(Clamp(c1.R - c2.R), Clamp(c1.G - c2.G), Clamp(c1.B - c2.B));
             }
 
-        Color operator * (float k)
+        friend Color operator * (const Color& c, const float k)
             {
-                return Color(*this)*=k;
+                return Color(Clamp(c.R * k), Clamp(c.G * k), Clamp(c.B * k));
             }
 
-        Color operator / (float k)
+        friend Color operator * (const float k, const Color& c)
+            {
+                return Color(Clamp(c.R * k), Clamp(c.G * k), Clamp(c.B * k));
+            }
+
+        friend Color operator / (const Color& c, const float k)
             {
                 assert(k > EPSILON);
-                return Color(*this)/=k;
+                return Color(Clamp(c.R / k), Clamp(c.G / k), Clamp(c.B / k));
             }
 
-        friend Color Mul(Color c1, Color c2)
+        friend Color Mul(const Color& c1, const Color& c2)
             {   
-                return Color(c1.R * c2.R, 
-                             c1.G * c2.G, 
-                             c1.B * c2.B); 
+                return Color(c1.R * c2.R, c1.G * c2.G, c1.B * c2.B); 
             }
+
+        void Print() const
+            { 
+                printf("%hhu %hhu %hhu\n", R, G, B); 
+            }
+};
+
+class Material
+{
+    public:
+        Color matColor;
+        float matKd;
+        float matKs;
+        float matKr;
+
+        Material():
+            matColor(Color()), matKd(0), matKs(0), matKr(0) {};
+
+        Material(Color col, float Kd, float Ks, float Kr):
+            matColor(col), matKd(Kd), matKs(Ks), matKr(Kr) {};
+
+        ~Material()
+            {}
+};
+
+class Radiation
+{
+    public:
+        Color radColor;
+        float radKa;
+
+        Radiation():
+            radColor(Color()), radKa(0) {};
+
+        Radiation(Color col, float Ka):
+            radColor(col), radKa(Ka) {};
+
+        ~Radiation()
+            {}
 };
 
 #endif //GENERAL_H

@@ -3,78 +3,25 @@
 
 #include <SFML/Graphics.hpp>
 
-#include "myvector.h"
+#include "vector.h"
+#include "general.h"
+#include "sphere.h"
 
-class Scene
-{
-    private:
-        std::vector<Shape* > shapes;
-        std::vector<Light>   lights;
-        Camera               camera;
-
-    public:
-
-        Scene(Camera cam):
-            camera(cam) {};
-
-        ~Scene()
-            {}
-
-        int Draw(sf::RenderWindow window);
-
-        int Add(Shape* shape);
-        int Add(Light  light);
-
-};
-
-
+/*
 class Shape
 {
     public:
-
-
 };
-
-class Material
-{
-    Color col;
-    float 
-};
-
-class 
-
-class Sphere: public Shape
-{
-    private:
-        Vector sphereCenter;
-        Vector sphereColor;
-
-        float  sphereRadius;
-        float  sphereKd;
-        float  sphereKs;
-
-    public:
-        Sphere(Vector ctr, Vector col, float r, float Kd, float Ks):
-            sphereCenter(ctr), sphereColor(col), sphereRadius(r),
-            sphereKd(Kd), sphereKs(Ks){};
-
-        ~Sphere()
-            {}
-
-        
-};
+*/
 
 class Light
 {
-    private:
-        Vector lightPosition;
-        float  lightRadius;
-        Color  lightColor;
-        float  lightKa;
-
     public:
-        Light(Vector pos, Vector col, float Ka):
-            lightPosition(pos), lightColor(col), ligthKa(Ka){};
+        Vector    lightPosition;
+        Radiation lightRadiation;
+
+        Light(Vector pos, Radiation rad):
+            lightPosition(pos), lightRadiation(rad){};
         
         ~Light()
             {}
@@ -82,63 +29,145 @@ class Light
 
 class Camera
 {
-    private:
+    public:
         Vector camPosition;
         Vector scrCenter;
-        float  scrWidth;
-        float  scrHeight;  
+        Vector scrWidth; 
+        Vector scrHeight;
     
-    public:
-        Camera(Vector pos, Vector ctr, float w, float h)
-            {
-                camPosition = pos;
-                scrCenter   = ctr;
-                scrWidth    = w;
-                scrHeight   = h;
-            }
+        Camera(Vector pos, Vector ctr, Vector w, Vector h):
+            camPosition(pos), scrCenter(ctr), scrWidth(w), scrHeight(h) {};
 
         ~Camera()
             {}
 
-        unsigned int getWidth()
-            { return (unsigned int)scrWidth; }
+        Vector GetScreenPoint(size_t i, size_t j) const
+        {
+            if(i > WIDTH)
+                i = WIDTH;
 
-        unsigned int getHeight()
-            { return (unsigned int)scrHeight; }
+            if(j > HEIGHT)
+                j = HEIGHT;
+                
+            Vector scrPoint = scrCenter;
+            scrPoint += (2*(float)i/(float)WIDTH - 1)*(scrWidth - scrCenter);
+            scrPoint += (2*(float)j/(float)HEIGHT - 1)*(scrHeight - scrCenter);
+
+            return scrPoint;
+        }
 };
 
-
-class Pixel
+class Scene
 {
     private:
-        sf::Uint8 R;
-        sf::Uint8 G;
-        sf::Uint8 B;
-        sf::Uint8 A;
+        std::vector<Sphere> sceneShapes;
+        std::vector<Light>  sceneLights;
+        Camera              sceneCamera;
+
+        bool ClosestIntersection(const Ray& incidentRay, Vector& closestIntersection, 
+                                 Vector& closestNormal, Material& closestMaterial)
+            {
+                Vector intersectionPoint = Vector();
+                Vector normal = Vector();
+                float closestDistance = 0;
+
+                for(size_t k = 0; k < sceneShapes.size(); k++)
+                {
+                    if(sceneShapes[k].CatchRay(incidentRay, intersectionPoint, normal))
+                    {
+                        float distance = (intersectionPoint - incidentRay.rayFinish).GetSquaredLen();
+                        if(distance > closestDistance)
+                        {
+                            closestDistance = distance;
+                            closestIntersection = intersectionPoint;
+                            closestNormal = normal;
+                            closestMaterial = sceneShapes[k].GetMaterial();
+                        }
+                    }
+                }
+                
+                if(closestDistance == 0)
+                    return false;
+
+                return true;
+            }
+        
+        bool RayReach(const Light& light, const Vector& point)
+        {
+            Ray incidentRay = Ray(light.lightPosition, point);
+            Vector intersection = Vector();
+            Vector normal = Vector();
+
+            for(size_t k = 0; k < sceneShapes.size(); k++)
+                if(sceneShapes[k].CatchRay(incidentRay, intersection, normal))
+                    return false;
+
+            return true;
+        }
+
+        Color GetIntensity(const Ray& incidentRay, size_t maxReflections)
+            {
+                Color color = Color();
+                Material mat = Material();
+                Vector normal = Vector();
+                Vector intersectionPoint = Vector();
+                Vector incident = incidentRay.rayFinish - incidentRay.rayStart;
+                Vector reflected = 2 * Dot(normal, incident) * normal - incident;
+
+                if(!(maxReflections && ClosestIntersection(incidentRay, 
+                    intersectionPoint, normal, mat)))
+                    return color;
+
+                for(size_t k = 0; k < sceneLights.size(); k++)
+                {
+                    if(!RayReach(sceneLights[k], intersectionPoint))
+                        continue;
+
+                    Color lightColor = sceneLights[k].lightRadiation.radColor;
+                    Vector light = sceneLights[k].lightPosition - intersectionPoint; 
+
+/*light.Print();
+normal.Print();
+incident.Print();
+reflected.Print();*/
+                    float D = CosAngle(normal, incident);
+                    float S =  std::pow(CosAngle(reflected, light), N_SPECULAR);
+
+                    color += D * mat.matKd * Mul(lightColor, mat.matColor) + S * mat.matKs * lightColor;
+                }
+
+                return color; //+ mat.matKr * GetIntensity(Ray(intersectionPoint, 
+                       //intersectionPoint + reflected), maxReflections - 1);
+            }
 
     public:
-        Pixel():
-            R(0), G(0), B(0), A(0) {};
+        Scene(const Camera& camera):
+            sceneCamera(camera) {};
 
-        Pixel(sf::Uint8 Red, sf::Uint8 Green, sf::Uint8 Blue):
-            R(Red), G(Green), B(Blue), A(255) {};
-
-        Pixel(sf::Uint8 Red, sf::Uint8 Green, sf::Uint8 Blue, sf::Uint8 Alpha):
-            R(Red), G(Green), B(Blue), A(Alpha) {};
-
-        ~Pixel()
+        ~Scene()
             {}
 
-        Color PixToVector(Pixel pxl)
-            { return Color(pxl.R/255, pxl.G/255, pxl.B/255); }
+        void Draw(Color* pixels)
+        {
+            for(size_t i = 0; i < WIDTH; i++)
+                for(size_t j = 0; j < HEIGHT; j++)
+                {
+                    Vector scrPoint = sceneCamera.GetScreenPoint(i, j);
+                    Ray incidentRay = Ray(sceneCamera.camPosition, scrPoint);
+
+                    pixels[j * WIDTH + i] = GetIntensity(incidentRay, 3);
+                }
+        }
+
+        void AddSphere(Sphere sphere)
+        {
+            sceneShapes.push_back(sphere);
+        }
+
+        void AddLight(Light light)
+        {
+            sceneLights.push_back(light);
+        }
 };
-
-//bool LineCrossSphere(Vector linepoint1, Vector linepoint2, 
-//                     float radius, Vector spherecenter, Vector& nearest_crosspoint);
-
-//Vector CountIntensity(Vector pixel, int n_spheres, 
-//                                  Sphere* spheres, Lamp lamp, Camera camera);
-
-//Pixel VectorToPix(Vector v, float Alpha);
 
 #endif  //RENDER_H

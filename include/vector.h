@@ -8,7 +8,7 @@
 
 class Vector
 {
-    protected:
+    private:
         float x;
         float y;
         float z;
@@ -23,20 +23,20 @@ class Vector
         ~Vector()
             {}
 
-        float GetX()
+        float GetX() const
             { return x; }
 
-        float GetY()
+        float GetY() const
             { return y; }
 
-        float GetZ()
+        float GetZ() const
             { return z; }
 
-        float GetLen()
-            { return std::sqrt(x*x+y*y+z*z); }
+        float GetLen() const
+            { return std::sqrt(x * x + y * y + z * z); }
 
-        float GetSquaredLen()
-            { return x*x+y*y+z*z; }
+        float GetSquaredLen() const
+            { return x * x + y * y + z * z; }
 
         Vector& operator = (const Vector& v)
         {
@@ -79,52 +79,62 @@ class Vector
             return *this;
         }
 
-        Vector operator + (Vector v)
+        friend Vector operator + (const Vector& v1, const Vector& v2)
             { 
-                return Vector(*this)+=v; 
+                return Vector(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z); 
             }
 
-        Vector operator - (Vector v)
+        friend Vector operator - (const Vector& v1, const Vector& v2)
             {   
-                return Vector(*this)-=v;
+                return Vector(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z); 
             }
 
-        Vector operator * (float k)
+        friend Vector operator * (const Vector& v, float k)
             {
-                return Vector(*this)*=k;
+                return Vector(v.x * k, v.y * k, v.z * k); 
             }
 
-        Vector operator / (float k)
+        friend Vector operator * (float k, const Vector& v)
+            {
+                return Vector(v.x * k, v.y * k, v.z * k); 
+            }
+
+        friend Vector operator / (const Vector& v, float k)
             {
                 assert(k > EPSILON);
-                return Vector(*this)/=k;
+                return Vector(v.x / k, v.y / k, v.z / k); 
             }
 
         Vector Normalize()
             {
                 float len = this->GetLen();
                 assert(len != 0);
-                return *this / len; 
+                return *this / len;
             } 
 
-        friend Vector Cross(Vector v1, Vector v2)
+        friend Vector Cross(const Vector& v1, const Vector& v2)
             {   
                 return Vector(v1.y * v2.z - v1.z * v2.y, 
                               v1.z * v2.x - v1.x * v2.z, 
                               v1.x * v2.y - v1.y * v2.x); 
             }
 
-        friend float Dot(Vector v1, Vector v2)
+        friend float Dot(const Vector& v1, const Vector& v2)
             { 
                 return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z; 
             }
 
-        friend float CosAngle(Vector v1, Vector v2)
+        friend float CosAngle(const Vector& v1, const Vector& v2)
             {
                 float len1 = v1.GetLen();
                 float len2 = v2.GetLen();
                 assert(len1 != 0 && len2 != 0);
-                return Dot(v1, v2)/(len1*len2); 
+                return Dot(v1, v2) / (len1 * len2); 
+            }
+
+        void Print() const
+            { 
+                printf("%8.4lf %8.4lf %8.4lf\n", x, y, z);                 
             }
 };
 

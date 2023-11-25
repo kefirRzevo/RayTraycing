@@ -48,7 +48,4 @@ make:
 
 clean:
 	rm -rf obj/*.o $(TARGET)
-
-kill:
-	rm -rf logfiles/*.txt
 	

@@ -16,18 +16,23 @@ int main()
     sf::Sprite sprite(texture);
 
 
-    Material mat1 = Material(Color(255, 0, 0), 0.3, 0.2, 0.5);
-    Radiation rad1 = Radiation(Color(255, 255, 255), 0.05);
+    Material  mat1 = Material(Color(0, 255, 255), 0.8, 0.5, 0.5);
+    Material  mat2 = Material(Color(255, 0, 0), 1, 0.5, 0.8);
+    Radiation rad1 = Radiation(Color(255, 255, 255), 0);
 
-    Camera cam = Camera(Vector(0, 0, -10), Vector(0, 0, 0),
-                        Vector(-5, 0, 0), Vector(0, 3.75, 0));
+    Camera cam = Camera(Vector(0, 0, -30), Vector(0, 0, 0),
+                        Vector(19.20, 0, 0), Vector(0, 10.8, 0));
 
-    Light light1 = Light(Vector(10, 10, 10), rad1);
-    Sphere sphere1 = Sphere(5, Vector(0, 0, 10), mat1);
+    Light  light1  = Light(Vector(0, 0, 0), rad1);
+    Light  light2  = Light(Vector(10, 10, 0), rad1);
+    Sphere sphere1 = Sphere(10, Vector(  10,   10, 20), mat1);
+    Sphere sphere2 = Sphere(10, Vector(-10, -10, 20), mat2);
 
     Scene scene = Scene(cam);
     scene.AddSphere(sphere1);
+    scene.AddSphere(sphere2);
     scene.AddLight(light1);
+    //scene.AddLight(light2);
 
     Color* pixels  = new Color[WIDTH * HEIGHT];
     scene.Draw(pixels);

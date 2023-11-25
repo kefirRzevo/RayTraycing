@@ -9,13 +9,13 @@ class Ray
 {
     public:
         Vector rayStart;
-        Vector rayFinish;
+        Vector rayDirection;
 
         Ray():
-            rayStart(), rayFinish() {};
+            rayStart(), rayDirection() {};
 
-        Ray(Vector p1, Vector p2):
-            rayStart(p1), rayFinish(p2) {};
+        Ray(Vector start, Vector direction):
+            rayStart(start), rayDirection(direction) {};
         
         ~Ray()
             {}
@@ -133,7 +133,7 @@ class Color
 
         friend Color Mul(const Color& c1, const Color& c2)
             {   
-                return Color(c1.R * c2.R, c1.G * c2.G, c1.B * c2.B); 
+                return Color(Clamp(c1.R * c2.R), Clamp(c1.G * c2.G), Clamp(c1.B * c2.B)); 
             }
 
         void Print() const

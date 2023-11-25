@@ -18,39 +18,42 @@ class Sphere
         ~Sphere()
             {}
 
-        Material GetMaterial() const
-            { return sphereMat; }
-
-        bool CatchRay(const Ray& incidentRay, Vector& intersectionPoint, Vector& normal)
+        bool CatchRay(const Ray& ray, Vector& intersectionPoint, Vector& normal)
         {
-            float FS  = Dot(incidentRay.rayFinish - incidentRay.rayStart, 
-                            incidentRay.rayFinish - incidentRay.rayStart);
-            float FCS = Dot(incidentRay.rayFinish - incidentRay.rayStart, 
-                            incidentRay.rayStart - sphereCenter);
-            float SC  = Dot(incidentRay.rayStart - sphereCenter, 
-                            incidentRay.rayStart - sphereCenter);
+            Vector start = ray.rayStart;
+            Vector direction = ray.rayDirection;
+            Vector center = sphereCenter;
+
+            float FS  = Dot(direction, direction);
+            float FCS = Dot(direction, start - center);
+            float SC  = Dot(start - center, start - center);
 
             float a = FS, b = 2 * FCS, c = SC - sphereRadius * sphereRadius;
             float D = b * b - 4 * a * c;
 
-            if(D < 0)
+            if(D < EPSILON)
                 return false;
 
             float t1 = (-b - std::sqrt(D)) / (2 * a);
             float t2 = (-b + std::sqrt(D)) / (2 * a);
 
-            if(t2 < 0)
+            if(t1 < 0)
                 return false;
 
-            if(t1 < 0)
-                t1 = t2;
-
-            intersectionPoint = incidentRay.rayStart + t1 * \
-                        (incidentRay.rayFinish - incidentRay.rayStart);
-
-            normal = (intersectionPoint - sphereCenter).Normalize();
+            intersectionPoint = start + t1 * direction;
+            normal = GetNormal(intersectionPoint);
 
             return true;
+        }
+
+        Vector GetNormal(Vector point)
+        {
+            return Vector(point - sphereCenter).Normalize();
+        }
+
+        Material GetMaterial() const
+        { 
+            return sphereMat;
         }
 };
 

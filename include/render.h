@@ -22,7 +22,7 @@ class Light
 
         Light(Vector pos, Radiation rad):
             lightPosition(pos), lightRadiation(rad){};
-        
+
         ~Light()
             {}
 };
@@ -34,7 +34,7 @@ class Camera
         Vector scrCenter;
         Vector scrWidth; 
         Vector scrHeight;
-    
+
         Camera(Vector pos, Vector ctr, Vector w, Vector h):
             camPosition(pos), scrCenter(ctr), scrWidth(w), scrHeight(h) {};
 
@@ -43,12 +43,6 @@ class Camera
 
         Vector GetScreenPoint(size_t i, size_t j) const
         {
-            if(i > WIDTH)
-                i = WIDTH;
-
-            if(j > HEIGHT)
-                j = HEIGHT;
-                
             Vector scrPoint = scrCenter;
             scrPoint += (2*(float)i/(float)WIDTH - 1)*(scrWidth - scrCenter);
             scrPoint += (2*(float)j/(float)HEIGHT - 1)*(scrHeight - scrCenter);
@@ -61,83 +55,95 @@ class Scene
 {
     private:
         std::vector<Sphere> sceneShapes;
-        std::vector<Light>  sceneLights;
-        Camera              sceneCamera;
+        std::vector<Light> sceneLights;
+        Camera sceneCamera;
 
-        bool ClosestIntersection(const Ray& incidentRay, Vector& closestIntersection, 
-                                 Vector& closestNormal, Material& closestMaterial)
+        bool GetIntersection(const Ray& ray, Vector& closestIntersection, 
+                             Material& closestMaterial, Vector& closestNormal)
             {
-                Vector intersectionPoint = Vector();
+                Vector start = ray.rayStart;
+                Vector intersection = Vector();
                 Vector normal = Vector();
                 float closestDistance = 0;
 
                 for(size_t k = 0; k < sceneShapes.size(); k++)
                 {
-                    if(sceneShapes[k].CatchRay(incidentRay, intersectionPoint, normal))
+                    if(sceneShapes[k].CatchRay(ray, intersection, normal))
                     {
-                        float distance = (intersectionPoint - incidentRay.rayFinish).GetSquaredLen();
-                        if(distance > closestDistance)
+                        float distance = (intersection - start).GetSquaredLen();
+
+                        if(!closestDistance || closestDistance > distance - EPSILON)
                         {
                             closestDistance = distance;
-                            closestIntersection = intersectionPoint;
                             closestNormal = normal;
                             closestMaterial = sceneShapes[k].GetMaterial();
+                            closestIntersection = intersection;
                         }
                     }
                 }
-                
-                if(closestDistance == 0)
+
+                if(closestDistance < EPSILON)
                     return false;
 
                 return true;
             }
-        
-        bool RayReach(const Light& light, const Vector& point)
+
+        bool LightReach(Vector lightPosition, const Vector& point)
         {
-            Ray incidentRay = Ray(light.lightPosition, point);
-            Vector intersection = Vector();
-            Vector normal = Vector();
+            Vector direction = (point - lightPosition).Normalize();
+            Vector shiftPoint = point - direction * EPSILON;
+            Ray incidentRay = Ray(lightPosition, direction);
+
+            Vector intersectionPoint = Vector();
+            Vector tempNormal = Vector();
+
+            float shiftDistance = (lightPosition - shiftPoint).GetSquaredLen();
 
             for(size_t k = 0; k < sceneShapes.size(); k++)
-                if(sceneShapes[k].CatchRay(incidentRay, intersection, normal))
-                    return false;
+                if(sceneShapes[k].CatchRay(incidentRay, intersectionPoint, tempNormal))
+                {
+                    float distance = (lightPosition - intersectionPoint).GetSquaredLen();
+                    if(distance < shiftDistance)
+                        return false;
+                }
 
             return true;
         }
 
-        Color GetIntensity(const Ray& incidentRay, size_t maxReflections)
+        Color GetColor(const Ray& incidentRay, size_t maxReflections)
             {
                 Color color = Color();
+
+                if(!maxReflections)
+                    return color;
+
                 Material mat = Material();
                 Vector normal = Vector();
-                Vector intersectionPoint = Vector();
-                Vector incident = incidentRay.rayFinish - incidentRay.rayStart;
-                Vector reflected = 2 * Dot(normal, incident) * normal - incident;
+                Vector intersection = Vector();
 
-                if(!(maxReflections && ClosestIntersection(incidentRay, 
-                    intersectionPoint, normal, mat)))
+                if(!GetIntersection(incidentRay, intersection, mat, normal))
                     return color;
+
+                Vector incident  = incidentRay.rayDirection;
+                Vector reflected = incident - 2*Dot(normal, incident)*normal;
 
                 for(size_t k = 0; k < sceneLights.size(); k++)
                 {
-                    if(!RayReach(sceneLights[k], intersectionPoint))
-                        continue;
+                    //if(!LightReach(sceneLights[k].lightPosition, intersection))
+                      //  continue;
 
-                    Color lightColor = sceneLights[k].lightRadiation.radColor;
-                    Vector light = sceneLights[k].lightPosition - intersectionPoint; 
+                    Color  lightColor = sceneLights[k].lightRadiation.radColor;
+                    Vector light = intersection - sceneLights[k].lightPosition; 
 
-/*light.Print();
-normal.Print();
-incident.Print();
-reflected.Print();*/
-                    float D = CosAngle(normal, incident);
-                    float S =  std::pow(CosAngle(reflected, light), N_SPECULAR);
+                    float D = CosAngle(normal, -1*incident);
+                    float S = std::pow(CosAngle(reflected, light), N_SPECULAR);
 
-                    color += D * mat.matKd * Mul(lightColor, mat.matColor) + S * mat.matKs * lightColor;
+                    color += fabs(D) * mat.matKd * Mul(lightColor, mat.matColor) +
+                             S * mat.matKs * lightColor;
                 }
 
-                return color; //+ mat.matKr * GetIntensity(Ray(intersectionPoint, 
-                       //intersectionPoint + reflected), maxReflections - 1);
+                return color;//*(1-mat.matKr) + mat.matKr * GetColor(Ray(intersection, 
+                        //reflected), maxReflections - 1);
             }
 
     public:
@@ -153,9 +159,11 @@ reflected.Print();*/
                 for(size_t j = 0; j < HEIGHT; j++)
                 {
                     Vector scrPoint = sceneCamera.GetScreenPoint(i, j);
-                    Ray incidentRay = Ray(sceneCamera.camPosition, scrPoint);
+                    Vector direction = scrPoint - sceneCamera.camPosition;
 
-                    pixels[j * WIDTH + i] = GetIntensity(incidentRay, 3);
+                    Ray incidentRay = Ray(sceneCamera.camPosition, direction);
+
+                    pixels[j * WIDTH + i] = GetColor(incidentRay, 5);
                 }
         }
 
